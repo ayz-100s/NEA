@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>TMUA Question Generator</title>
+  <style>
+    body { font-family: Arial; margin: 40px; background: #f7f7f7; }
+    button { padding: 10px 20px; background: #4285f4; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    button:hover { background: #3367d6; }
+    .card { background: white; padding: 20px; margin-top: 20px; border-radius: 6px; box-shadow: 0 0 5px rgba(0,0,0,0.1); }
+  </style>
+
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async
+          src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"> #Absolutely no idea lol, chatgpt
+  </script>
+</head>
+<body>
+
+  <h1>Gemini TMUA Question Generator</h1>
+
+  <form method="POST">
+    <button type="submit" name="action" value="generate">Generate TMUA Question</button>
+  </form>
+
+<div style="display: flex; gap: 25px; margin-top: 25px;">
+
+  <!-- LEFT SIDE: Question + Options -->
+  <div style="flex: 2;">
+
+    {% if question %}
+    <div class="card">
+      <h3>Question:</h3>
+      <p>{{ question|safe }}</p>
+
+      {% if options %}
+        <style>
+          .option-box {
+            border: 2px solid #ccc;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            cursor: pointer;
+            background: #fafafa;
+            transition: 0.2s;
+            display: block;
+          }
+          {% if not response %}
+          .option-box:hover {
+            background: #e8f0fe;
+            border-color: #4285f4;
+          }
+          {% endif %}
+          input[type="radio"] {
+            display: none;
+          }
+          {% if not response %}
+          input[type="radio"]:checked + label.option-box {
+            background: #d2e3fc;
+            border-color: #3367d6;
+            font-weight: bold;
+          }
+          {% endif %}
+        </style>
+
+<form method="POST" action="/">
+  <input type="hidden" name="question_id" value="{{ question_id }}">
+  <input type="hidden" name="action" value="submit_answer">
+
+  {% for opt in options %}
+    <div>
+      <input type="radio" id="opt{{ loop.index }}" name="user_input" value="{{ opt[0] }}">
+      <label class="option-box" for="opt{{ loop.index }}">
+        {{ opt }}
+      </label>
+    </div>
+  {% endfor %}
+
+  <br>
+      {% if not response %}
+  <button type="submit">Submit Answer</button>
+  {% endif %}
+</form>
+
+
+      {% endif %}
+
+    </div>
+    {% endif %}
+
+  </div>
+
+
+  <!-- RIGHT SIDE: Mark + Explanation -->
+  <div style="flex: 1;">
+
+    {% if response %}
+    <div class="card">
+      <h4>Mark:</h4>
+      <p>{{ response|safe }}</p>
+
+      {% if explanation %}
+      <h4>Explanation:</h4>
+      <p>{{ explanation|safe }}</p>
+      {% endif %}
+
+    </div>
+    {% endif %}
+  </div>
+</div>
+</body>
+</html>
