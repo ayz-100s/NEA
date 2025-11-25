@@ -6,7 +6,7 @@ import re
 import sqlite3
 
 app = Flask(__name__)
-app.secret_key = "1"
+app.secret_key = "1623"
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
