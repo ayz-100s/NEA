@@ -68,7 +68,7 @@
 
   {% for opt in options %}
     <div>
-      <input type="radio" id="opt{{ loop.index }}" name="user_input" value="{{ opt[0] }}">
+      <input type="radio" id="opt{{ loop.index }}" name="user_input" value="{{ opt }}">
       <label class="option-box" for="opt{{ loop.index }}">
         {{ opt }}
       </label>
