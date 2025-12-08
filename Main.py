@@ -2,6 +2,7 @@ from flask import Flask, request, render_template, session, redirect, url_for
 from markupsafe import Markup
 import google.generativeai as genai
 import os, json, re, sqlite3, ast
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "1623"
@@ -10,7 +11,7 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def ask_gemini(prompt):
-    model = genai.GenerativeModel("gemini-2.0-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash")
     result = model.generate_content(prompt)
     return result.text
 
@@ -48,6 +49,7 @@ def init_db():
             options TEXT,
             correct_answer TEXT,
             topic TEXT,
+            difficulty INTEGER,
             explanation TEXT,
             raw_output TEXT,
             timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -71,6 +73,21 @@ def init_db():
             email TEXT UNIQUE,
             password TEXT
         )
+    """)
+
+    cursor.execute("""
+    
+    CREATE TABLE IF NOT EXISTS History (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        question_id INTEGER,
+        user_id INTEGER,
+        timestamp DATETIME DEFAULT CURRENT_TIMESTAMP,
+        user_answer TEXT,
+        correct_answer TEXT,
+        time_taken FLOAT,
+        FOREIGN KEY(question_id) REFERENCES questions(id)
+        FOREIGN KEY(user_id) REFERENCES users(id)
+        ) 
     """)
 
     conn.commit()
@@ -139,7 +156,7 @@ def login():
 def home():
     if "user_id" not in session:
         return redirect("/login")
-
+    #initialising variables as errors occur when running the request functions if not declared.
     question = ""
     options = []
     answer = ""
@@ -147,6 +164,7 @@ def home():
     explanation = ""
     Mark = ""
     question_id = None
+    time_taken = None
 
     if request.method == "POST":
         action = request.form.get("action")
@@ -154,9 +172,8 @@ def home():
         if action == "generate":
 
             ai_output = ask_gemini(
-                "Generate a simple TMUA-style math question with multiple-choice options "
-                "(A–H). Return EXACT JSON:\n"
-                "{'question': '...', 'options': ['A) ...','B) ...','C) ...','D) ...','E) ...','F) ...','G) ...','H) ...'], 'correct_answer': 'C', 'topic': '...', 'explanation': '...'}"
+                "Generate a simple TMUA-style math question with multiple-choice options (A–H).Give the question a difficulty rating of 1-9, which links to the type of TMUA grade question it would be. Return EXACT JSON:\n"
+                "{'question': '...', 'options': ['A) ...','B) ...','C) ...','D) ...','E) ...','F) ...','G) ...','H) ...'], 'correct_answer': 'C', 'topic': '...', 'explanation': '...', 'difficulty': '...'}"
             )
 
             print("RAW GEMINI OUTPUT:\n", ai_output)
@@ -169,26 +186,26 @@ def home():
             topic = data.get("topic", "")
             explanation_raw = data.get("explanation", "")
             explanation = format_explanation(explanation_raw)
+            difficulty = data.get("difficulty", "")
 
-            # Convert A-H → option text
+            # Convert A-H to option text
             index = ord(correct_letter) - ord("A")
             if 0 <= index < len(options):
                 correct_option_text = options[index]
-            else:
-                correct_option_text = options[0]  # fallback
 
             conn = sqlite3.connect("tmua.db")
             cursor = conn.cursor()
 
             # insert into questions table
             cursor.execute("""
-                INSERT INTO questions (question, options, correct_answer, topic, explanation, raw_output)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO questions (question, options, correct_answer, topic, difficulty, explanation, raw_output)
+                VALUES (?, ?, ?, ?, ?, ?,?)
             """, (
                 question,
                 json.dumps(options),
                 correct_option_text,
                 topic,
+                difficulty,
                 explanation_raw,
                 ai_output
             ))
@@ -205,8 +222,18 @@ def home():
 
             conn.commit()
             conn.close()
+            session["start_time"] = datetime.now().timestamp()
 
         elif action == "submit_answer":
+
+            start = session.get("start_time")
+            if start is not None:
+                end = datetime.now().timestamp()
+                time_taken = end - start  # in seconds
+            else:
+                time_taken = None
+            print(time_taken)
+
             user_answer = request.form.get("user_input", "").strip()
             question_id = request.form.get("question_id")
 
@@ -234,13 +261,30 @@ def home():
                 topic = row[1]
                 explanation = format_explanation(row[2])
 
-                options = [o[0] for o in option_rows]
-                correct_answer = next(o[0] for o in option_rows if o[1] == 1)
+                options = [i[0] for i in option_rows]
+                correct_answer = next(i[0] for i in option_rows if i[1] == 1)
 
                 if user_answer.lower().strip() == correct_answer.lower().strip():
                     Mark = "Correct!"
                 else:
                     Mark = f"Incorrect. Correct answer was: {correct_answer}"
+
+            conn = sqlite3.connect("tmua.db")
+            cursor = conn.cursor()
+
+            cursor.execute("""
+                           INSERT INTO history (question_id, user_id, user_answer, correct_answer, time_taken)
+                           VALUES (?, ?, ?, ?, ?)
+                           """, (
+                               question_id,
+                               session["user_id"],
+                               user_answer,
+                               correct_answer,
+                               time_taken
+                           ))
+
+            conn.commit()
+            conn.close()
 
     return render_template("index_original.html",
                            question=question,
@@ -250,7 +294,6 @@ def home():
                            explanation=explanation,
                            response=Mark,
                            question_id=question_id)
-
 
 if __name__ == "__main__":
     init_db()
