@@ -9,7 +9,7 @@ class BaseSpacedRepition:
         self.correct_streak = 0
         self.next_review_time = datetime.now()
 
-    def update_after_review(self, correct, time_taken=None):
+    def UpdateReview(self, correct, time_taken=None):
 
         if correct:
             self.correct_streak += 1
@@ -19,13 +19,13 @@ class BaseSpacedRepition:
         self.interval = max(1.0, self.interval)
         self.next_review_time = datetime.now() + timedelta(days=self.interval)
 
-    def get_next_review_time(self):
+    def ReviewTime(self):
         return self.next_review_time
 
 
 
 class FSRS(BaseSpacedRepition):
-    def update_after_review(self, correct, time_taken=None):
+    def UpdateReview(self, correct, time_taken=None):
 
         if correct:
             self.correct_streak += 1
